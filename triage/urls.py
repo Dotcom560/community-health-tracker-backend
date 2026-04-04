@@ -5,6 +5,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 import json
 
+
 @csrf_exempt
 def token_view(request):
     """Custom token view that returns JSON"""

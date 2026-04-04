@@ -3,7 +3,7 @@ from django.urls import path, include
 from django.http import JsonResponse
 
 def home(request):
-    return JsonResponse({'status': 'ok', 'message': 'API is running'})
+    return JsonResponse({'message': 'API is running', 'status': 'ok'})
 
 urlpatterns = [
     path('', home),

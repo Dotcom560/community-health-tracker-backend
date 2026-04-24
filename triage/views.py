@@ -13,6 +13,8 @@ from django.dispatch import receiver
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.exceptions import InvalidToken
+from django.core.mail import send_mail
+from django.conf import settings
 
 # ========== PUSH NOTIFICATION SUBSCRIPTION MODEL (In-memory for now) ==========
 push_subscriptions = []  # List to store active subscriptions
@@ -810,6 +812,64 @@ def nearby_pharmacies_view(request):
         'pharmacies': pharmacies,
         'count': len(pharmacies)
     })
+
+
+# ========== TEST EMAIL VIEW (NEW - ADDED) ==========
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def send_test_email_notification(request):
+    """Send a test email notification"""
+    try:
+        data = json.loads(request.body)
+        to_email = data.get('email')
+        subject = data.get('subject', 'Test Notification from Community Health Tracker')
+        message = data.get('message', 'This is a test email to verify that email notifications are working correctly.\n\nIf you received this email, your notification system is configured properly!\n\n---\nCommunity Health Tracker\nYour personal health assistant')
+        
+        if not to_email:
+            return JsonResponse({'error': 'Email address required'}, status=400)
+        
+        # Check if user is admin
+        auth_header = request.headers.get('Authorization', '')
+        is_admin = False
+        
+        if auth_header:
+            try:
+                token = auth_header.split(' ')[1]
+                decoded_token = AccessToken(token)
+                user_id = decoded_token['user_id']
+                user = User.objects.get(id=user_id)
+                is_admin = user.is_staff or user.is_superuser
+            except (InvalidToken, User.DoesNotExist):
+                pass
+        
+        if not is_admin:
+            return JsonResponse({'error': 'Admin access required'}, status=403)
+        
+        # Send email using Django's mail system
+        try:
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[to_email],
+                fail_silently=False,
+            )
+            return JsonResponse({
+                'success': True,
+                'message': f'Test email sent successfully to {to_email}'
+            })
+        except Exception as email_error:
+            print(f"Email error: {email_error}")
+            return JsonResponse({
+                'success': False,
+                'error': str(email_error)
+            }, status=500)
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 # ========== PUSH NOTIFICATION API ENDPOINTS ==========
